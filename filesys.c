@@ -7,6 +7,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <assert.h>
+#include<stdlib.h>
 
 struct merkleNode{
 	char hash[21];
@@ -121,13 +122,44 @@ int filesys_init (void)
 {
 	//if secure.txt does not exist, CREATE
 	int fd = open("secure.txt", O_CREAT|O_WRONLY, S_IRUSR|S_IWUSR);
+	int ret,size;
+	char *buf;
 	assert(fd != -1);
+	size=52;
+	FILE* fp=fdopen(fd, "w");
+	fseek(fp, 0L, SEEK_SET);
 
-	// Check the integrity of all the files whos hashes exist in secure.txt
+	while(!feof(fp)){
+		buf = (char *) calloc(50, sizeof(char)); 
+		ret = read (fd, buf, size);
+		if (ret != size) {
+			return 0;
+		}
+		char filename[32];
+		char hash[20];
+		int i=0,j=0;
 
-	// if a file DNE, just throw away corresponding entry in secure.txt, (if entry exists)
+		for(i=0;i<32;i++){
+			filename[i]=buf[i];
+		}
+		filename[i]='\0';
 
-	// if Integrity of an existing file is compromised, return 1
+		for(j=0;j<20;j++){
+			hash[j]=buf[j+32];
+		}
+		hash[j]='\0';
+
+		if( access( filename, F_OK ) != -1 ) {
+    		// file exists
+    		// Check the integrity of the file
+    		// if Integrity of an existing file is compromised, return 1
+		} 
+		else {
+    		// file doesn't exist
+    		// if a file DNE, just throw away corresponding entry in secure.txt, (if entry exists)
+		}
+		free(buf);
+	}
 
 	filesys_inited = 1;
 	return 0; //on success
