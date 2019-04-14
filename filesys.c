@@ -27,6 +27,7 @@ void get_sha1_hash (const void *buf, int len, const void *sha1)
 }
 
 struct merkleNode* createMerkleTree(int fd){
+	assert(fd!=-1);
 	char blk[64];
 	memset (blk, 0, 64);
 	
@@ -34,16 +35,16 @@ struct merkleNode* createMerkleTree(int fd){
 	int levelCount = 0;
 
 	//Creating all the leaf nodes
-	while(read (fd, blk, 64)){
+	while(read (fd, blk, 64) > 0){
 		assert(levelCount<1024*1024);
 
-		level[levelCount++] = (struct merkleNode*) malloc( sizeof(struct merkleNode) );
+		level[levelCount] = (struct merkleNode*) malloc( sizeof(struct merkleNode) );
 		get_sha1_hash(blk, 64, level[levelCount++]->hash);
 
 		memset (blk, 0, 64);
 	}
 
-	while(levelCount!=1){
+	while(levelCount > 1){
 		int pCount;
 		for(pCount = 0; pCount < levelCount/2; pCount++){
 			
@@ -73,6 +74,7 @@ struct merkleNode* createMerkleTree(int fd){
 		levelCount = pCount;
 	}
 	return level[0];
+	return NULL;
 }
 
 int hashSame(char* h1, char* h2){
@@ -112,7 +114,9 @@ int s_open (const char *pathname, int flags, mode_t mode)
 	*/
 	int existsInFS = access( pathname, F_OK ) != -1;
 	fd1 = open(pathname, flags, mode);
+	printf("%s\n", pathname);
 	root[fd1] = createMerkleTree(fd1);
+	printf("bye\n");
 
 	fd2 = open("secure.txt", O_RDWR, S_IRUSR|S_IWUSR);
 
