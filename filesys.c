@@ -32,18 +32,19 @@ struct merkleNode* createMerkleTree(int fd){
 	
 	struct merkleNode* level[1024*1024];//4 MB
 	int levelCount = 0;
-
+	//printf("%d\n", levelCount);
 	//Creating all the leaf nodes
-	while(read (fd, blk, 64)){
+	while(read (fd, blk, 64) > 0){
+		
 		assert(levelCount<1024*1024);
-
-		level[levelCount++] = (struct merkleNode*) malloc( sizeof(struct merkleNode) );
+		//printf("%d\n", levelCount);
+		level[levelCount] = (struct merkleNode*) malloc( sizeof(struct merkleNode) );
 		get_sha1_hash(blk, 64, level[levelCount++]->hash);
 
 		memset (blk, 0, 64);
 	}
 
-	while(levelCount!=1){
+	while(levelCount>1){
 		int pCount;
 		for(pCount = 0; pCount < levelCount/2; pCount++){
 			
@@ -112,14 +113,16 @@ int s_open (const char *pathname, int flags, mode_t mode)
 	*/
 	int existsInFS = access( pathname, F_OK ) != -1;
 	fd1 = open(pathname, flags, mode);
+	printf("%s\n", pathname);
 	root[fd1] = createMerkleTree(fd1);
-
+	//printf("%s\n", root[fd1]->hash);
 	fd2 = open("secure.txt", O_RDWR, S_IRUSR|S_IWUSR);
 
 	//Step 1: Build in-memory merkle tree
 	if( existsInFS ) {
 
 		while((n = read(fd2, buffer, sizeof(buffer))) > 0){
+			//printf("%d\n", n);
 			char filename[32];
 			char hash[20];
 
@@ -127,7 +130,8 @@ int s_open (const char *pathname, int flags, mode_t mode)
 				filename[i]=buffer[i];
 			for(int j = 0; j < 20; j++) 
 				hash[j]=buffer[j+32];
-
+			//printf("%s\n", filename);
+			//printf("%s\n", hash);
 			if( !strcmp(filename,pathname) ){
 				existsInSecure = 1;
 				if(!(flags & O_TRUNC)){
@@ -154,7 +158,6 @@ int s_open (const char *pathname, int flags, mode_t mode)
 				}
 			}
 		}
-
 		//If the file exists in FS, secure.txt must have an entry for it
 		assert(existsInSecure);
 
@@ -167,9 +170,11 @@ int s_open (const char *pathname, int flags, mode_t mode)
 		assert(i<31);
 		assert(pathname[i]=='\0');
 		fn[i]=pathname[i];
-
-		lseek(fd2, 0, SEEK_END);
+		//printf("%s\n", fn);
+		int ret=lseek(fd2, 0, SEEK_END);
+		printf("%d\n", ret);
 		write(fd2, fn, 32);
+		lseek(fd2, 0, SEEK_END);
 		write(fd2, root[fd1]->hash, 20);
 		return fd1;
 	}

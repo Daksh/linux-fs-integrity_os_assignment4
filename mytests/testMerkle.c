@@ -28,20 +28,21 @@ void get_sha1_hash (char *buf, int len, char *sha1)
 struct merkleNode* createMerkleTree(int fd){
 	char blk[64];
 	memset (blk, 0, 64);
-	
-	struct merkleNode* level[1024*1024];//4 MB
+	printf("In func%d\n", fd);
+	//struct merkleNode* level[1024*1024];//4 MB
+	struct merkleNode* level[5000];
 	int levelCount = 0;
 
 	//Creating all the leaf nodes
 	while(read (fd, blk, 64) > 0){
-		assert(levelCount<1024*1024);
+		assert(levelCount<5000);
 
 		level[levelCount] = (struct merkleNode*) malloc( sizeof(struct merkleNode) );
 		get_sha1_hash(blk, 64, level[levelCount++]->hash);
 
 		memset (blk, 0, 64);
 	}
-
+	printf("In func%d\n", fd);
 	while(levelCount>1){
 		int pCount;
 		char blk[40];
@@ -77,7 +78,8 @@ struct merkleNode* createMerkleTree(int fd){
 int main(){
 	int fd = open ("merkleTest.txt", O_RDONLY, 0);
 	printf("Got FD: %d\n", fd);
-    createMerkleTree(fd);
+    root[fd]=createMerkleTree(fd);
+    printf("%s\n", root[fd]->hash);
 
 	return 0;
 }
