@@ -31,21 +31,42 @@ struct merkleNode* createMerkleTree(int fd){
 	char blk[64];
 	memset (blk, 0, 64);
 
-	// printf("tryint to open: %s\n", fnames[fd]);
-	fd = open (fnames[fd], O_RDONLY, 0);
-	//Handling empty file case, and case when read is returning -1
-	int numCan = read (fd, blk, 64);
-	// printf("Able to read %d bytes (max 64)\n", numCan);
-	assert (numCan >=0 );
-	if(numCan == 0){
-		struct merkleNode* ret = (struct merkleNode*) malloc( sizeof(struct merkleNode) );
-		memset (ret->hash, 0, 64);
-		ret -> leftChild = NULL;
-		ret -> rightChild = NULL;
-		return ret;
-	}
-	lseek(fd, 0, SEEK_SET);
-	
+
+printf("trying to open: %s\n", fnames[fd]);
+    printf("fd is %d\n", fd);
+    fd = open (fnames[fd], O_RDONLY, 0);
+    //Handling empty file case, and case when read is returning -1
+    lseek(fd, 0, SEEK_SET);
+    int numCan = read (fd, blk, 64);
+    // printf("Able to read %d bytes (max 64)\n", numCan);
+    assert (numCan >=0 );
+    if(numCan == 0){
+        struct merkleNode* ret = (struct merkleNode*) malloc( sizeof(struct merkleNode) );
+        memset (ret->hash, 0, 64);
+        ret -> leftChild = NULL;
+        ret -> rightChild = NULL;
+        return ret;
+    }
+    lseek(fd, 0, SEEK_SET);
+
+
+
+
+	// // printf("tryint to open: %s\n", fnames[fd]);
+	// fd = open (fnames[fd], O_RDONLY, 0);
+	// //Handling empty file case, and case when read is returning -1
+	// lseek(fd, 0, SEEK_SET);
+	// int numCan = read (fd, blk, 64);
+	// // printf("Able to read %d bytes (max 64)\n", numCan);
+	// assert (numCan >=0 );
+	// if(numCan == 0){
+	// 	struct merkleNode* ret = (struct merkleNode*) malloc( sizeof(struct merkleNode) );
+	// 	memset (ret->hash, 0, 64);
+	// 	ret -> leftChild = NULL;
+	// 	ret -> rightChild = NULL;
+	// 	return ret;
+	// }
+	// lseek(fd, 0, SEEK_SET);
 	
 	struct merkleNode* level[3000];
 	int levelCount = 0;
@@ -122,7 +143,7 @@ int updateSecure(int fd){
 	int secureFD = open("secure.txt", O_RDWR, S_IRUSR|S_IWUSR);
 	int n;
 	char secureBlock[52]; // 32 for fileName + 20 for Root Hash
-
+	lseek(secureFD, 0, SEEK_SET);
 	while((n = read(secureFD, secureBlock, sizeof(secureBlock))) > 0){
 		assert(n == 52);
 		
@@ -148,7 +169,7 @@ char* checkSecure(int fd){
 	int n;
 	char secureBlock[52]; // 32 for fileName + 20 for Root Hash
 	char *hash = (char*)malloc(20);
-
+	lseek(secureFD, 0, SEEK_SET);
 	while((n = read(secureFD, secureBlock, sizeof(secureBlock))) > 0){
 		assert(n == 52);
 		
@@ -206,7 +227,7 @@ int s_open (const char *pathname, int flags, mode_t mode)
 		printf("existsInFS\n");
 		root[fd1] = createMerkleTree(fd1);
 		// merkleTreeTraverse(fd1);
-
+		lseek(fd2, 0, SEEK_SET);
 		while((n = read(fd2, buffer, sizeof(buffer))) > 0){
 			char filename[32];
 			char hash[20];
@@ -235,6 +256,7 @@ int s_open (const char *pathname, int flags, mode_t mode)
 
 					//Update the root hash in secure.txt
 					write(fd2, root[fd1]->hash, 20);
+					lseek(fd2, 0, SEEK_END);
 
 					return fd1;
 				}
@@ -332,7 +354,7 @@ ssize_t s_read (int fd, void *buf, size_t count)
 	struct merkleNode* blah = createMerkleTree(fd);
 	if(!hashSame(blah->hash, root[fd]->hash)) 
 		return -1;
-
+	lseek(fd, 0, SEEK_SET);
 	return read (fd, buf, count);
 }
 
