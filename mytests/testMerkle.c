@@ -14,7 +14,7 @@ struct merkleNode{
 	struct merkleNode *rightChild;
 };
 
-static struct merkleNode* root[100]; //assuming fd lies in [0,99]
+// static struct merkleNode* root[100]; //assuming fd lies in [0,99]
 
 void get_sha1_hash (const void *buf, int len, const void *sha1)
 {
@@ -105,6 +105,5 @@ int main(){
 	printf("Got FD: %d\n", fd);
     root[fd] = createMerkleTree(fd);
     merkleTreeTraverse(fd);
-
 	return 0;
 }
