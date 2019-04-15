@@ -9,95 +9,15 @@
 #include <assert.h>
 #include <stdlib.h>
 
-struct merkleNode{
-	char hash[20];
-	struct merkleNode *leftChild;
-	struct merkleNode *rightChild;
-};
-
 static struct merkleNode* root[100]; //assuming fd lies in [0,99]
 static char* fnames[100];
 static int filesys_inited = 0;
 
-/* returns 20 bytes unique hash of the buffer (buf) of length (len)
- * in input array sha1.
- */
-void get_sha1_hash (const void *buf, int len, const void *sha1)
-{
-	SHA1 ((unsigned char*)buf, len, (unsigned char*)sha1);
-}
-
-struct merkleNode* createMerkleTree(int fd){
-	char blk[64];
-	memset (blk, 0, 64);
-
-	printf("tryint to open: %s\n", fnames[fd]);
-	printf("fd is %d\n", fd);
-	fd = open (fnames[fd], O_RDONLY, 0);
-
-	//Handling empty file case, and case when read is returning -1
-	lseek(fd, 0, SEEK_SET);
-	int numCan = read (fd, blk, 64);
-	// printf("Able to read %d bytes (max 64)\n", numCan);
-	assert (numCan >=0 );
-	if(numCan == 0){
-		struct merkleNode* ret = (struct merkleNode*) malloc( sizeof(struct merkleNode) );
-		memset (ret->hash, 0, 64);
-		ret -> leftChild = NULL;
-		ret -> rightChild = NULL;
-		return ret;
-	}
-	lseek(fd, 0, SEEK_SET);
-	
-	
-	struct merkleNode* level[3000];
-	int levelCount = 0;
-
-	//Creating all the leaf nodes
-	while(read (fd, blk, 64) > 0){
-		assert(levelCount<3000);
-		if(levelCount==0)
-			printf(" The first block is %s\n",blk );
-		level[levelCount] = (struct merkleNode*) malloc( sizeof(struct merkleNode) );
-		level[levelCount] -> leftChild = NULL;
-		level[levelCount] -> rightChild = NULL;
-		get_sha1_hash(blk, 64, level[levelCount++]->hash);
-
-		memset (blk, 0, 64);
-	}
-	close(fd);
-
-	while(levelCount>1){
-		int pCount;
-		char blk[40];
-
-		for(pCount = 0; pCount < levelCount/2; pCount++){
-			for(int i=0; i<20; i++) blk[i] = level[pCount*2]->hash[i];
-			for(int i=0; i<20; i++) blk[20+i] = level[pCount*2+1]->hash[i];
-
-			struct merkleNode *node = (struct merkleNode*) malloc( sizeof(struct merkleNode) );
-			get_sha1_hash(blk, 64, node->hash);
-			node->leftChild = level[pCount*2];
-			node->rightChild = level[pCount*2+1];
-			
-			level[pCount] = node;
-		}
-
-		// if there was a node left, pull it in the level up
-		// TODO: Duplicate the last node and add a combined hash
-		// this will ensure that we always have a complete BT
-		if(levelCount%2){
-			level[pCount] = (struct merkleNode*) malloc( sizeof(struct merkleNode) );
-			for(int i=0; i<20; i++) level[pCount]->hash[i] = level[pCount*2]->hash[i];
-			level[pCount*2]->leftChild = NULL;
-			level[pCount*2]->rightChild = NULL;
-
-			pCount++;
-		}
-		levelCount = pCount;
-	}
-	return level[0];
-}
+struct merkleNode{
+	char hash[21];//last byte for '\0'
+	struct merkleNode *leftChild;
+	struct merkleNode *rightChild;
+};
 
 int hashSame(char* h1, char* h2){
 	for(int i=0; i<20; i++)
@@ -120,6 +40,167 @@ void printHash(char* has){
 	printf("\n");
 }
 
+
+
+/* returns 20 bytes unique hash of the buffer (buf) of length (len)
+ * in input array sha1.
+ */
+void get_sha1_hash (const void *buf, int len, const void *sha1)
+{
+	SHA1 ((unsigned char*)buf, len, (unsigned char*)sha1);
+}
+
+struct merkleNode* createMerkleTree(int fd){	
+	char blk[65];
+	memset (blk, '0', 64);
+    fd = open (fnames[fd], O_RDONLY, 0);
+    //Handling empty file case, and case when read is returning -1
+    lseek(fd, 0, SEEK_SET);
+    int numCan = read (fd, blk, 64);
+    assert (numCan >=0 );
+    if(numCan == 0){    	
+        struct merkleNode* ret = (struct merkleNode*) malloc( sizeof(struct merkleNode) );
+        blk[64] = '\0';
+		get_sha1_hash(blk, 64, ret->hash);        
+        ret->hash[20] = '\0';
+        ret -> leftChild = NULL;
+        ret -> rightChild = NULL;
+        return ret;
+    }
+    //read successful
+	int endpointer = lseek(fd,0,SEEK_END);
+    lseek(fd, 0, SEEK_SET);
+	memset (blk, '0', 64);	
+	struct merkleNode* level[3000];
+	int levelCount = 0;
+
+	while((read (fd, blk, 64)) > 0){
+		blk[64] = '\0';
+		assert(levelCount<3000);
+		level[levelCount] = (struct merkleNode*) malloc( sizeof(struct merkleNode) );
+		level[levelCount] -> leftChild = NULL;
+		level[levelCount] -> rightChild = NULL;
+
+		get_sha1_hash(blk, 64, level[levelCount++]->hash);
+
+		level[levelCount-1]->hash[20] = '\0';
+	
+		int current = lseek(fd,0,SEEK_CUR);
+		if(current != endpointer)
+		{			
+			memset (blk, '0', 64);
+		}
+	}
+	printf("%s\n","Last block data" );
+	printf("%s\n",blk);
+	printf("%s\n","Block last Hash value" );
+	printHash(level[levelCount-1]->hash);		
+	close(fd);
+
+	while(levelCount>1){
+		int pCount;
+		char blk[41];
+		for(pCount = 0; pCount < levelCount/2; pCount++){
+			for(int i=0; i<20; i++) blk[i] = level[pCount*2]->hash[i];
+			for(int i=0; i<20; i++) blk[20+i] = level[pCount*2+1]->hash[i];
+			blk[40] = '\0';
+			struct merkleNode *node = (struct merkleNode*) malloc( sizeof(struct merkleNode) );
+			get_sha1_hash(blk, 40, node->hash);
+			node->hash[20] = '\0';
+			node->leftChild = level[pCount*2];
+			node->rightChild = level[pCount*2+1];
+			level[pCount] = node;
+		}
+		// if there was a node left, pull it in the level up
+		// TODO: Duplicate the last node and add a combined hash
+		// this will ensure that we always have a complete BT
+		if(levelCount%2){
+			level[pCount] = (struct merkleNode*) malloc( sizeof(struct merkleNode) );
+			for(int i=0; i<20; i++) level[pCount]->hash[i] = level[pCount*2]->hash[i];
+			level[pCount]->hash[20] = '\0';				
+			level[pCount*2]->leftChild = NULL;
+			level[pCount*2]->rightChild = NULL;
+			pCount++;
+		}
+		levelCount = pCount;
+	}
+	return level[0];
+}
+
+
+// struct merkleNode* createMerkleTree(int fd){
+// 	char blk[64];
+// 	memset (blk, 0, 64);
+
+// 	printf("tryint to open: %s\n", fnames[fd]);
+// 	printf("fd is %d\n", fd);
+// 	fd = open (fnames[fd], O_RDONLY, 0);
+
+// 	//Handling empty file case, and case when read is returning -1
+// 	lseek(fd, 0, SEEK_SET);
+// 	int numCan = read (fd, blk, 64);
+// 	// printf("Able to read %d bytes (max 64)\n", numCan);
+// 	assert (numCan >=0 );
+// 	if(numCan == 0){
+// 		struct merkleNode* ret = (struct merkleNode*) malloc( sizeof(struct merkleNode) );
+// 		memset (ret->hash, 0, 64);
+// 		ret -> leftChild = NULL;
+// 		ret -> rightChild = NULL;
+// 		return ret;
+// 	}
+// 	lseek(fd, 0, SEEK_SET);
+	
+	
+// 	struct merkleNode* level[3000];
+// 	int levelCount = 0;
+
+// 	//Creating all the leaf nodes
+// 	while(read (fd, blk, 64) > 0){
+// 		assert(levelCount<3000);
+// 		if(levelCount==0)
+// 			printf(" The first block is %s\n",blk );
+// 		level[levelCount] = (struct merkleNode*) malloc( sizeof(struct merkleNode) );
+// 		level[levelCount] -> leftChild = NULL;
+// 		level[levelCount] -> rightChild = NULL;
+// 		get_sha1_hash(blk, 64, level[levelCount++]->hash);
+
+// 		memset (blk, 0, 64);
+// 	}
+// 	close(fd);
+
+// 	while(levelCount>1){
+// 		int pCount;
+// 		char blk[40];
+
+// 		for(pCount = 0; pCount < levelCount/2; pCount++){
+// 			for(int i=0; i<20; i++) blk[i] = level[pCount*2]->hash[i];
+// 			for(int i=0; i<20; i++) blk[20+i] = level[pCount*2+1]->hash[i];
+
+// 			struct merkleNode *node = (struct merkleNode*) malloc( sizeof(struct merkleNode) );
+// 			get_sha1_hash(blk, 64, node->hash);
+// 			node->leftChild = level[pCount*2];
+// 			node->rightChild = level[pCount*2+1];
+			
+// 			level[pCount] = node;
+// 		}
+
+// 		// if there was a node left, pull it in the level up
+// 		// TODO: Duplicate the last node and add a combined hash
+// 		// this will ensure that we always have a complete BT
+// 		if(levelCount%2){
+// 			level[pCount] = (struct merkleNode*) malloc( sizeof(struct merkleNode) );
+// 			for(int i=0; i<20; i++) level[pCount]->hash[i] = level[pCount*2]->hash[i];
+// 			level[pCount*2]->leftChild = NULL;
+// 			level[pCount*2]->rightChild = NULL;
+// 			pCount++;
+// 		}
+// 		levelCount = pCount;
+// 	}
+// 	return level[0];
+// }
+
+
+
 int updateSecure(int fd){
 	char* fName = fnames[fd];
 	char* updatedHash = root[fd]->hash;
@@ -130,9 +211,9 @@ int updateSecure(int fd){
 	while((n = read(secureFD, secureBlock, sizeof(secureBlock))) > 0){
 		assert(n == 52);
 		char filename[32];
-		char hash[20];
+		//char hash[21];
 		for(int i = 0; i < 32; i++) filename[i] = secureBlock[i];
-		for(int j = 0; j < 20; j++) hash[j] = secureBlock[j+32];
+		// for(int j = 0; j < 20; j++) hash[j] = secureBlock[j+32];
 
 		if( !strcmp(filename,fName) ){
 			lseek(secureFD, -20, SEEK_CUR);
