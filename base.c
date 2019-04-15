@@ -31,6 +31,7 @@ int main_loop (char *filename)
 			size = total_size;
 		}
 		ret = s_write (fd1, buf, size);
+		printf("%d\n", ret);
 		if (ret != size) {
 			printf ("SWRITE Unable to write to file\n");
 			return 0;

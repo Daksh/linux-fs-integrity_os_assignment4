@@ -30,9 +30,7 @@ void get_sha1_hash (const void *buf, int len, const void *sha1)
 struct merkleNode* createMerkleTree(int fd){
 	char blk[64];
 	memset (blk, 0, 64);
-
-
-printf("trying to open: %s\n", fnames[fd]);
+	printf("trying to open: %s\n", fnames[fd]);
     printf("fd is %d\n", fd);
     fd = open (fnames[fd], O_RDONLY, 0);
     //Handling empty file case, and case when read is returning -1
@@ -48,9 +46,6 @@ printf("trying to open: %s\n", fnames[fd]);
         return ret;
     }
     lseek(fd, 0, SEEK_SET);
-
-
-
 
 	// // printf("tryint to open: %s\n", fnames[fd]);
 	// fd = open (fnames[fd], O_RDONLY, 0);
@@ -74,7 +69,8 @@ printf("trying to open: %s\n", fnames[fd]);
 	//Creating all the leaf nodes
 	while(read (fd, blk, 64) > 0){
 		assert(levelCount<3000);
-
+		//if(levelCount<5)
+			//sprintf("blk no. %d's value is %s\n",levelCount,blk);
 		level[levelCount] = (struct merkleNode*) malloc( sizeof(struct merkleNode) );
 		level[levelCount] -> leftChild = NULL;
 		level[levelCount] -> rightChild = NULL;
@@ -201,7 +197,6 @@ int s_open (const char *pathname, int flags, mode_t mode)
 	int fd2; //file descriptor for secure.txt
 	char buffer[52]; // 32 for fileName + 20 for Root Hash
 	int existsInSecure = 0;
-
 	/*
 	If the file exists and secure.txt is there; then check for consistency
 	If tampered, then return -1 
