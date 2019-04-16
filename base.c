@@ -31,6 +31,7 @@ int main_loop (char *filename)
 			size = total_size;
 		}
 		ret = s_write (fd1, buf, size);
+		printf("ret %d\n", ret);
 		if (ret != size) {
 			printf ("SWRITE Unable to write to file\n");
 			return 0;
@@ -70,7 +71,7 @@ int main ()
 		printf ("Unable to init filesys\n");
 		return 0;
 	}
-
+	// printf("%s\n","R" );
 	for (i = 0; i < NUM_FILES; i++) {
 		snprintf (filename, 32, "foo_%d.txt", i);
 		main_loop (filename);

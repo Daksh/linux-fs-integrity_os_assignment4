@@ -1,0 +1,1 @@
+/usr/bin/cc -g   CMakeFiles/linux_fs_integrity_os_assignment4.dir/mytests/testMerkle.c.o CMakeFiles/linux_fs_integrity_os_assignment4.dir/base.c.o CMakeFiles/linux_fs_integrity_os_assignment4.dir/filesys.c.o  -o linux_fs_integrity_os_assignment4 /usr/lib/x86_64-linux-gnu/libcrypto.so 

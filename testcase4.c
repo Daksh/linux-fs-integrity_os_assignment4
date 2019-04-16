@@ -19,6 +19,7 @@ static int corrupt_file (char *filename)
 
 	fd1 = open (filename, O_WRONLY, 0);
 	if (fd1 == -1) {
+		printf("%s\n","WHY" );
 		printf ("Unable to open file descriptor1\n");
 		return 0;
 	}
