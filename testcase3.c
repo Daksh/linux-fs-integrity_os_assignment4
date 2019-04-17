@@ -43,7 +43,7 @@ int main ()
 	}
 
 	ret = s_lseek (fd2, 0, SEEK_END);
-	printf("%d\n", ret);
+	printf("ret is %d\n", ret);
 	if (ret != 128000) {
 		printf ("Seek test failed\n");
 		return 0;

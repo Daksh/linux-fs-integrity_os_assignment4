@@ -224,7 +224,9 @@ char* getSecureHash(int fd){
 	assert(access( "secure.txt", F_OK ) != -1);//secure.txt must exist
 
 	char* fName = fnames[fd];
+	// printf("File opened %s\n",fName );
 	char* retHash = (char *)malloc(21);
+	
 	int secureFD = open("secure.txt", O_RDWR, S_IRUSR|S_IWUSR);
 	//check this
 	assert(lseek(secureFD,0,SEEK_CUR)==0);
@@ -241,11 +243,13 @@ char* getSecureHash(int fd){
 		filename[32]='\0';
 		retHash[20]='\0';
 		if( !strcmp(filename,fName) ){
+			// if file found			
 			close(secureFD);
 			// printHash(retHash);
 			return retHash;
 		}
 	}
+	//If file not found, will have to create new entry
 	close(secureFD);
 	return NULL;
 }
@@ -255,7 +259,9 @@ int appendSecure(int fd){
 	//check
 	char* fName = fnames[fd];
 	char* addHash = root[fd]->hash;
-
+	int prev = lseek(fd,0,SEEK_CUR);
+	EOFptr[fd] = lseek(fd,0,SEEK_END);
+	lseek(fd,prev,SEEK_SET);
 	int secureFD = open("secure.txt", O_RDWR, S_IRUSR|S_IWUSR);
 	//might be wrong
 	assert(lseek(secureFD,0,SEEK_CUR)==0);
@@ -279,6 +285,7 @@ int s_open (const char *pathname, int flags, mode_t mode)
 	assert (filesys_inited);
 	flags = flags & ~O_WRONLY;
 	flags = flags|O_RDWR;
+	// printf("File s_opened is%s\n",pathname);
 	int fd = open(pathname, flags, mode);
 	// printf("%d\n", fd);
 	fnames[fd] = (char *)malloc(33);
@@ -305,8 +312,7 @@ int s_open (const char *pathname, int flags, mode_t mode)
 
 
 	if(secHash == NULL){
-		EOFptr[fd] = lseek(fd,0,SEEK_END);
-		printf("%d\n", EOFptr[fd]);
+		// printf("EOF is %d\n", EOFptr[fd]);
 		appendSecure(fd);
 	} else{
 		if(flags & O_TRUNC)
@@ -441,11 +447,34 @@ int s_open (const char *pathname, int flags, mode_t mode)
 int s_lseek (int fd, long offset, int whence)
 {
 	// assert(1==0);
+
 	assert(fd<100);
 	assert (filesys_inited);
 	// int ret = lseek (fd, offset, whence);
-	int ret = EOFptr[fd];
+	// assert(whence==2);
+	
+	int ret = -1;
+	if(whence==2)
+	{
+		//SEEK_END
+		// if end of file
+		lseek(fd,offset,SEEK_SET);//offset moved to offset bytes from BOF
+		lseek(fd,EOFptr[fd],SEEK_CUR);// offset = offset+EOF
+ 		ret = EOFptr[fd];		
+	}
+	else if(whence ==0)
+	{	//seek_Set
+		ret = lseek(fd,offset,SEEK_SET);
+	}
+	else
+	{	//Seek_cur
+		//Should never enter here
+		assert(1==0);
+	}
+	
+	// lseek(fd,offset,whence);
 	//printf("ret: %d\n", ret);
+	assert(ret!=-1);
 	return ret;
 }
 
@@ -475,9 +504,13 @@ ssize_t s_write (int fd, const void *buf, size_t count)
 
 	//printf("%s\n","after11" );
 
+	//Integrity preserved
 
 	int ret = write (fd, buf, count);//CHECK OUTPUT MAYBE
+	int prev_offset = lseek(fd,0,SEEK_CUR);
 	EOFptr[fd] = lseek(fd,0,SEEK_END);
+	lseek(fd,prev_offset,SEEK_SET);
+	// printf("After s_write, eof is %d\n",EOFptr[fd]);
 	root[fd] = createMerkleTree(fd);
 	//printf("%s\n","after11" );
 	//destroyTree(root[fd]->leftChild);
@@ -506,7 +539,10 @@ ssize_t s_read (int fd, void *buf, size_t count)
 
 	struct merkleNode* prev = createMerkleTree(fd);
 	if(!hashSame(prev->hash, root[fd]->hash)) 
+	{
+		printf("%s\n","Not same" );
 		return -1;
+	}
 	destroyTree(prev);
 	return read (fd, buf, count);
 }
