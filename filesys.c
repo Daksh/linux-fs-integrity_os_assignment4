@@ -19,6 +19,15 @@ struct merkleNode{
 	struct merkleNode *rightChild;
 };
 
+void destroyTree(struct merkleNode* x){
+	if(x == NULL)
+		return;
+	destroyTree(x->leftChild);
+	destroyTree(x->rightChild);
+	x = NULL;
+	free(x);
+}
+
 int hashSame(char* h1, char* h2){
 	for(int i=0; i<20; i++)
 		if( h1[i]!=h2[i] )
@@ -54,10 +63,15 @@ struct merkleNode* createMerkleTree(int fd){
 	// printf("%s\n","I am here" );
 	char blk[65];
 	memset (blk, '0', 64);
-    fd = open (fnames[fd], O_RDONLY, 0);
+    // fd = open (fnames[fd], O_RDONLY, 0);
+    // printf(" fd is %d\n",fd );
     //Handling empty file case, and case when read is returning -1
+    // int ptr1 = lseek(fd, 0, SEEK_END);    
+    // printf("PTR1 is %d\n",ptr1);
     lseek(fd, 0, SEEK_SET);
+    // printf("start is  %d\n",ptr );
     int numCan = read (fd, blk, 64);
+    // printf("numCan is  %d\n",numCan);
     assert (numCan >=0 );
     if(numCan == 0){    	
         struct merkleNode* ret = (struct merkleNode*) malloc( sizeof(struct merkleNode) );
@@ -78,6 +92,7 @@ struct merkleNode* createMerkleTree(int fd){
 	while((read (fd, blk, 64)) > 0){
 		blk[64] = '\0';
 		assert(levelCount<3000);
+		//printf("%s\n","after leaves" );
 		level[levelCount] = (struct merkleNode*) malloc( sizeof(struct merkleNode) );
 		level[levelCount] -> leftChild = NULL;
 		level[levelCount] -> rightChild = NULL;
@@ -96,7 +111,7 @@ struct merkleNode* createMerkleTree(int fd){
 	// printf("%s\n",blk);
 	// printf("%s\n","Block last Hash value" );
 	// printHash(level[levelCount-1]->hash);		
-	close(fd);
+	//close(fd);
 
 	while(levelCount>1){
 		int pCount;
@@ -105,6 +120,7 @@ struct merkleNode* createMerkleTree(int fd){
 			for(int i=0; i<20; i++) blk[i] = level[pCount*2]->hash[i];
 			for(int i=0; i<20; i++) blk[20+i] = level[pCount*2+1]->hash[i];
 			blk[40] = '\0';
+			//printf("%s\n","after internal" );
 			struct merkleNode *node = (struct merkleNode*) malloc( sizeof(struct merkleNode) );
 			get_sha1_hash(blk, 40, node->hash);
 			node->hash[20] = '\0';
@@ -125,6 +141,10 @@ struct merkleNode* createMerkleTree(int fd){
 		}
 		levelCount = pCount;
 	}
+	destroyTree(level[0]->leftChild);
+	destroyTree(level[0]->rightChild);
+	//level[0]->leftChild=NULL;
+	//level[0]->rightChild=NULL;
 
 	return level[0];
 }
@@ -132,7 +152,7 @@ struct merkleNode* createMerkleTree(int fd){
 //updates secure.txt
 int updateSecure(int fd){
 	char* fName = fnames[fd];
-	printf("fnames wala %s\n",fName );
+	// printf("fnames wala %s\n",fName );
 // 	char filePath[100];
 // if (fcntl(fd, F_GETPATH, filePath) != -1)
 // {
@@ -157,11 +177,11 @@ int updateSecure(int fd){
 			lseek(secureFD, -20, SEEK_CUR);
 			//Update the root hash in secure.txt
 			write(secureFD, updatedHash, 20);
-			close(fd);
+			close(secureFD);
 			return 1;
 		}
 	}
-	close(fd);
+	close(secureFD);
 	return 0;
 	}
 
@@ -181,10 +201,14 @@ char* checkSecure(int fd) {
 		for(int j = 0; j < 20; j++) hash[j] = secureBlock[j+32];
 		filename[32]='\0';
 		hash[20]='\0';
-		if( !strcmp(filename,fName) )
+		if( !strcmp(filename,fName) ){
+			close(secureFD);
 			return hash; //check
+		}
+
 	}
 	free(hash);
+	close(secureFD);
 	return NULL;
 }
 
@@ -252,10 +276,15 @@ int s_open (const char *pathname, int flags, mode_t mode)
 	fnames[fd] = (char *)malloc(33);
 	//check argument 33
 	snprintf(fnames[fd], 33, "%s", pathname);
-	printf("s_open adding fnames[%d]: %s\n", fd, fnames[fd]);
+	// printf("s_open adding fnames[%d]: %s\n", fd, fnames[fd]);
 
+	// printf("Fd before calling merkle in s_open %d\n",fd );
 	struct merkleNode* merkleRoot = createMerkleTree(fd);
 	root[fd] = merkleRoot;	
+	//destroyTree(root[fd]->leftChild);
+	//destroyTree(root[fd]->rightChild);
+	//root[fd]->leftChild=NULL;
+	//root[fd]->rightChild=NULL;
 	// printf("%s\n","out" );
 	char* secHash = getSecureHash(fd);
 	// printf("secHash is \n");
@@ -276,6 +305,7 @@ int s_open (const char *pathname, int flags, mode_t mode)
 			close(fd);
 			for(int x=0; x<20; x++) root[fd]->hash[x] = secHash[x];
 			root[fd]->hash[20] ='\0';
+			printf("%s\n","hash not same" );
 			return -1;
 		}
 	}
@@ -418,16 +448,28 @@ ssize_t s_write (int fd, const void *buf, size_t count)
 	assert(fd<100);
 	assert (filesys_inited);
 
-	struct merkleNode* blah = createMerkleTree(fd);
-	if(!hashSame(blah->hash, root[fd]->hash)){
-		printHash(blah->hash);
+	printf("Fd before calling merkle %d\n",fd );
+	struct merkleNode* prev = createMerkleTree(fd);
+	//printf("%s\n","after" );
+	if(!hashSame(prev->hash, root[fd]->hash)){
+		printHash(prev->hash);
 		printHash(root[fd]->hash);
 		// printHash(checkSecure(fd));
 		return -1;
 	}
 
+	//destroyTree(prev);
+
+	//printf("%s\n","after11" );
+
+
 	int ret = write (fd, buf, count);//CHECK OUTPUT MAYBE
 	root[fd] = createMerkleTree(fd);
+	//printf("%s\n","after11" );
+	//destroyTree(root[fd]->leftChild);
+	//destroyTree(root[fd]->rightChild);
+	//root[fd]->leftChild=NULL;
+	//root[fd]->rightChild=NULL;
 	// merkleTreeTraverse(fd);
 
 	// CHANGE SECURE.TXT
@@ -448,20 +490,14 @@ ssize_t s_read (int fd, void *buf, size_t count)
 	//Step 2: Read the blocks
 	//Step 3: Check Integrity (if fail return -1)
 
-	struct merkleNode* blah = createMerkleTree(fd);
-	if(!hashSame(blah->hash, root[fd]->hash)) 
+	struct merkleNode* prev = createMerkleTree(fd);
+	if(!hashSame(prev->hash, root[fd]->hash)) 
 		return -1;
-
+	destroyTree(prev);
 	return read (fd, buf, count);
 }
 
-void destroyTree(struct merkleNode* x){
-	if(x == NULL)
-		return;
-	destroyTree(x->leftChild);
-	destroyTree(x->rightChild);
-	free(x);
-}
+
 
 /* destroy the in-memory Merkle tree */
 int s_close (int fd)
@@ -497,17 +533,21 @@ int checkIntegrity(int secureFD)
 			// when do I close this		
 			int fd = open(filename,O_RDONLY , 0);
 			struct merkleNode* merkleRoot = createMerkleTree(fd);
+
 			// char* secHash = getSecureHash(fd);
 			if(!hashSame(hash ,merkleRoot->hash))
 			{
+				//destroyTree(merkleRoot);
 				// integrity for this file compromised
 				return 1;
 			}
+			//destroyTree(merkleRoot);
 			//closing now
 			// close(fd);
 		}
 		else
 		{
+
 			lseek(secureFD,-52,SEEK_CUR);
 			// not sure
 			memset(secureBlock,'0',52);// Do check . Resort to copy to delete if this doesn't work
