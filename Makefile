@@ -20,14 +20,11 @@ testcase4: filesys.c testcase4.c
 
 run:
 	./base
-	./testcase1
-	rm secure.txt	
+	./testcase1	
 	./base
-	./testcase2
-	rm secure.txt	
+	./testcase2	
 	./base
 	./testcase3
-	rm secure.txt	
 	./base
 	./testcase4
 

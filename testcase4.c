@@ -49,6 +49,7 @@ int main ()
 	}
 
 	if (filesys_init() == 0) {
+		printf("%s\n","Yo" );
 		printf ("init filesys test failed\n");
 		return 0;
 	}

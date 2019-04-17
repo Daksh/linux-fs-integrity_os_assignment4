@@ -10,6 +10,7 @@
 #include <stdlib.h>
 
 static struct merkleNode* root[100]; //assuming fd lies in [0,99]
+static int EOFptr[100];
 static char* fnames[100];
 static int filesys_inited = 0;
 
@@ -276,8 +277,9 @@ int appendSecure(int fd){
 int s_open (const char *pathname, int flags, mode_t mode)
 {
 	assert (filesys_inited);
-
-	int fd = open(pathname, flags|O_RDWR, mode);
+	flags = flags & ~O_WRONLY;
+	flags = flags|O_RDWR;
+	int fd = open(pathname, flags, mode);
 	// printf("%d\n", fd);
 	fnames[fd] = (char *)malloc(33);
 	//check argument 33
@@ -303,6 +305,8 @@ int s_open (const char *pathname, int flags, mode_t mode)
 
 
 	if(secHash == NULL){
+		EOFptr[fd] = lseek(fd,0,SEEK_END);
+		printf("%d\n", EOFptr[fd]);
 		appendSecure(fd);
 	} else{
 		if(flags & O_TRUNC)
@@ -315,6 +319,8 @@ int s_open (const char *pathname, int flags, mode_t mode)
 			return -1;
 		}
 	}
+	//check
+	//EOFptr[fd] = lseek(fd,0,SEEK_END);
 	return fd;
 }
 
@@ -434,10 +440,11 @@ int s_open (const char *pathname, int flags, mode_t mode)
  */
 int s_lseek (int fd, long offset, int whence)
 {
-	assert(1==0);
+	// assert(1==0);
 	assert(fd<100);
 	assert (filesys_inited);
-	int ret = lseek (fd, offset, whence);
+	// int ret = lseek (fd, offset, whence);
+	int ret = EOFptr[fd];
 	//printf("ret: %d\n", ret);
 	return ret;
 }
@@ -470,6 +477,7 @@ ssize_t s_write (int fd, const void *buf, size_t count)
 
 
 	int ret = write (fd, buf, count);//CHECK OUTPUT MAYBE
+	EOFptr[fd] = lseek(fd,0,SEEK_END);
 	root[fd] = createMerkleTree(fd);
 	//printf("%s\n","after11" );
 	//destroyTree(root[fd]->leftChild);
@@ -523,6 +531,8 @@ int checkIntegrity(int secureFD)
 	char secureBlock[53]; // 32 for fileName + 20 for Root Hash
 	// char *hash = (char*)malloc(21);
 	lseek(secureFD,0,SEEK_SET);
+	// printf("%s\n","out wh1" );
+
 	while( (n = read(secureFD, secureBlock, 52) )> 0){
 		assert(n == 52);
 		char filename[33];
@@ -533,9 +543,12 @@ int checkIntegrity(int secureFD)
 		hash[20] = '\0';
 		//I think should work
 
+
+		// printf("%s\n","out");
 		if(access( filename, F_OK ) != -1)
 		{
-			// if file with given filename exists
+			printf("%s\n","EXISTS" );
+			// if file with given filename exists, check integrity
 			// when do I close this		
 			int fd = open(filename,O_RDONLY , 0);
 			struct merkleNode* merkleRoot = createMerkleTree(fd);
@@ -584,13 +597,31 @@ int filesys_init (void)
 {
 	assert(filesys_inited == 0);
 	//if secure.txt does not exist, CREATE . Anmol is sure
-	int fd = open("secure.txt", O_CREAT|O_WRONLY, S_IRUSR|S_IWUSR);
+	
+	int fd;
+
+	// if(filesys_inited==0)
+	// {
+	// 	printf("%s\n","" );
+	// 	fd = open("secure.txt", O_CREAT|O_TRUNC|O_WRONLY, S_IRUSR|S_IWUSR);
+	// }
+	// else
+	// {
+	// 	fd = open("secure.txt", O_CREAT|O_WRONLY, S_IRUSR|S_IWUSR);		
+	// }
+	fd = open("secure.txt", O_CREAT|O_RDWR, S_IRUSR|S_IWUSR);		
+
+	// int fd = open("secure.txt", O_CREAT|O_WRONLY, S_IRUSR|S_IWUSR);
 	assert(fd != -1);
 
 	//Checking the integrity of all the files in secure.txt
 	int integrity = checkIntegrity(fd);
-	filesys_inited = 1;
-	close(fd);	
+	// printf("%d\n",integrity);
+	if(integrity==0)
+	{
+		filesys_inited = 1;
+	}
+	close(fd);
 	return integrity;
 	// Check the integrity of all the files whos hashes exist in secure.txt - no more
 

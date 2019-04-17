@@ -15,7 +15,7 @@ int main_loop (char *filename)
 	char buf[128];
 	int size, total_size, ret;
 
-	fd1 = s_open (filename, O_CREAT|O_RDWR,S_IRUSR|S_IWUSR);
+	fd1 = s_open (filename, O_CREAT|O_WRONLY,S_IRUSR|S_IWUSR);
 	if (fd1 == -1) {
 		printf ("Unable to open file descriptor1\n");
 		return 0;

@@ -29,20 +29,21 @@ int main ()
 		printf ("invalid file offset1 : %d\n", ret);
 	}
 
-	fd2 = s_open ("foo_0.txt", O_WRONLY, 0);
+	fd2 = s_open ("foo_0.txt", O_WRONLY, 0);//entry of foo_0 created in secure.txt
 	if (fd2 == -1) {
 		printf ("Unable to open file descriptor2\n");
 		return 0;
 	}
 
 	val = 2;
-	ret = write (fd1, &val, 1);
+	ret = write (fd1, &val, 1);//offset shifted
 	if (ret != 1) {
 		printf ("Unable to write to file\n");
 		return 0;
 	}
 
 	ret = s_lseek (fd2, 0, SEEK_END);
+	printf("%d\n", ret);
 	if (ret != 128000) {
 		printf ("Seek test failed\n");
 		return 0;
