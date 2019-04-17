@@ -141,8 +141,14 @@ struct merkleNode* createMerkleTree(int fd){
 		}
 		levelCount = pCount;
 	}
-	destroyTree(level[0]->leftChild);
-	destroyTree(level[0]->rightChild);
+	if(level[0]!=NULL)
+    {
+        destroyTree(level[0]->leftChild);
+        destroyTree(level[0]->rightChild);        
+    }
+
+	// destroyTree(level[0]->leftChild);
+	// destroyTree(level[0]->rightChild);
 	//level[0]->leftChild=NULL;
 	//level[0]->rightChild=NULL;
 
@@ -271,7 +277,7 @@ int s_open (const char *pathname, int flags, mode_t mode)
 {
 	assert (filesys_inited);
 
-	int fd = open(pathname, flags, mode);
+	int fd = open(pathname, flags|O_RDWR, mode);
 	// printf("%d\n", fd);
 	fnames[fd] = (char *)malloc(33);
 	//check argument 33
@@ -432,7 +438,7 @@ int s_lseek (int fd, long offset, int whence)
 	assert(fd<100);
 	assert (filesys_inited);
 	int ret = lseek (fd, offset, whence);
-	printf("ret: %d\n", ret);
+	//printf("ret: %d\n", ret);
 	return ret;
 }
 
@@ -448,7 +454,7 @@ ssize_t s_write (int fd, const void *buf, size_t count)
 	assert(fd<100);
 	assert (filesys_inited);
 
-	printf("Fd before calling merkle %d\n",fd );
+	//printf("Fd before calling merkle %d\n",fd );
 	struct merkleNode* prev = createMerkleTree(fd);
 	//printf("%s\n","after" );
 	if(!hashSame(prev->hash, root[fd]->hash)){
